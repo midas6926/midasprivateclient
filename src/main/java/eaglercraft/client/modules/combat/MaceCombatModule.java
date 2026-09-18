@@ -1,139 +1,80 @@
 package eaglercraft.client.modules.combat;
 
-import java.util.Map;
 import java.util.HashMap;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.entity.player.Player;
+import java.util.Map;
 
-/**
- * Ported from Meteor Client - Mace Combat Support
- * Adapted for Eaglercraft 1.14 using the Eagler Dev Kit
- */
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.CompoundNBT;
+
 public class MaceCombatModule {
     private static final Map<String, MaceBehavior> MACE_BEHAVIORS = new HashMap<>();
-    private static boolean enabled = false;
-    
+    private static boolean enabled;
+
     public interface MaceBehavior {
-        void onMaceAttack(Player player, ItemStack mace);
-        void onMaceSmash(Player player, double fallDistance);
+        void onMaceAttack(PlayerEntity player, ItemStack mace);
+        void onMaceSmash(PlayerEntity player, double fallDistance);
         float getSmashDamage(double fallDistance);
     }
-    
+
     static {
         registerDefaultBehaviors();
     }
-    
+
     private static void registerDefaultBehaviors() {
-        // Smash attack behavior - uses fall distance for damage
         MACE_BEHAVIORS.put("smash_attack", new MaceBehavior() {
-            @Override
-            public void onMaceAttack(Player player, ItemStack mace) {
+            public void onMaceAttack(PlayerEntity player, ItemStack mace) {
                 System.out.println("[MaceCombat] Mace attack initiated");
             }
-            
-            @Override
-            public void onMaceSmash(Player player, double fallDistance) {
+
+            public void onMaceSmash(PlayerEntity player, double fallDistance) {
                 float damage = getSmashDamage(fallDistance);
                 System.out.println("[MaceCombat] Smash attack! Fall distance: " + fallDistance + ", Damage: " + damage);
                 applySmashEffect(player, damage);
             }
-            
-            @Override
+
             public float getSmashDamage(double fallDistance) {
-                // Mace damage scales with fall distance
-                // Base: 6 damage + (fallDistance - 1.5) * 2
-                if (fallDistance < 1.5) return 6.0f;
-                return 6.0f + (float) ((fallDistance - 1.5f) * 2f);
+                return fallDistance < 1.5 ? 6.0f : 6.0f + (float) ((fallDistance - 1.5f) * 2f);
             }
         });
-        
-        System.out.println("[MaceCombat] Registered " + MACE_BEHAVIORS.size() + " mace behaviors");
     }
-    
-    public static void enable() {
-        enabled = true;
-        System.out.println("[MaceCombat] Enabled - Mace weapon support for Eaglercraft");
-    }
-    
-    public static void disable() {
-        enabled = false;
-        System.out.println("[MaceCombat] Disabled");
-    }
-    
-    public static boolean isEnabled() {
-        return enabled;
-    }
-    
+
+    public static void enable() { enabled = true; }
+    public static void disable() { enabled = false; }
+    public static boolean isEnabled() { return enabled; }
+
     public static boolean isMace(ItemStack item) {
-        if (item == null || item.isEmpty()) return false;
-        // Check if item is mace (ViaItems or vanilla equivalent)
-        return item.getTagCompound() != null && 
-               item.getTagCompound().getString("via_identifier").equals("mace");
+        if (item == null || item.isEmpty() || item.getTag() == null) return false;
+        return "mace".equals(item.getTag().getString("via_identifier"));
     }
-    
-    /**
-     * Calculate smash attack damage based on fall distance
-     */
+
     public static float calculateSmashDamage(double fallDistance) {
-        if (fallDistance < 1.5) return 6.0f; // Base mace damage
-        // Damage increases 2 points per block fallen
-        return 6.0f + (float) ((fallDistance - 1.5f) * 2f);
+        return fallDistance < 1.5 ? 6.0f : 6.0f + (float) ((fallDistance - 1.5f) * 2f);
     }
-    
-    /**
-     * Apply smash attack effects (knockback, damage)
-     */
-    private static void applySmashEffect(Player player, float damage) {
-        // Create NBT tag for smash attack
-        if (player.getMainHandItem().getTagCompound() == null) {
-            player.getMainHandItem().setTagCompound(new CompoundTag());
-        }
-        
-        CompoundTag tag = player.getMainHandItem().getTagCompound();
-        tag.setFloat("smash_damage", damage);
-        tag.setLong("last_smash_time", System.currentTimeMillis());
+
+    private static void applySmashEffect(PlayerEntity player, float damage) {
+        ItemStack item = player.getHeldItemMainhand();
+        CompoundNBT tag = item.getOrCreateTag();
+        tag.putFloat("smash_damage", damage);
+        tag.putLong("last_smash_time", System.currentTimeMillis());
     }
-    
-    /**
-     * Get the last smash damage value
-     */
+
     public static float getLastSmashDamage(ItemStack mace) {
-        if (mace.getTagCompound() == null) return 0.0f;
-        return mace.getTagCompound().getFloat("smash_damage");
+        return mace == null || mace.getTag() == null ? 0.0f : mace.getTag().getFloat("smash_damage");
     }
-    
-    /**
-     * Check if mace has density enchantment (increases damage on smash)
-     */
+
     public static int getDensityLevel(ItemStack mace) {
-        if (mace.getTagCompound() == null) return 0;
-        return mace.getTagCompound().getInt("enchantment_density");
+        return mace == null || mace.getTag() == null ? 0 : mace.getTag().getInt("enchantment_density");
     }
-    
-    /**
-     * Check if mace has breach enchantment (reduces armor effectiveness)
-     */
+
     public static int getBreachLevel(ItemStack mace) {
-        if (mace.getTagCompound() == null) return 0;
-        return mace.getTagCompound().getInt("enchantment_breach");
+        return mace == null || mace.getTag() == null ? 0 : mace.getTag().getInt("enchantment_breach");
     }
-    
-    /**
-     * Check if mace has wind burst enchantment (launches player up)
-     */
+
     public static int getWindBurstLevel(ItemStack mace) {
-        if (mace.getTagCompound() == null) return 0;
-        return mace.getTagCompound().getInt("enchantment_wind_burst");
+        return mace == null || mace.getTag() == null ? 0 : mace.getTag().getInt("enchantment_wind_burst");
     }
-    
-    public static void registerBehavior(String name, MaceBehavior behavior) {
-        MACE_BEHAVIORS.put(name, behavior);
-    }
-    
-    public static MaceBehavior getBehavior(String name) {
-        return MACE_BEHAVIORS.getOrDefault(name, null);
-    }
+
+    public static void registerBehavior(String name, MaceBehavior behavior) { MACE_BEHAVIORS.put(name, behavior); }
+    public static MaceBehavior getBehavior(String name) { return MACE_BEHAVIORS.get(name); }
 }
